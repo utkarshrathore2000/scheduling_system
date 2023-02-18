@@ -1,0 +1,353 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row" style="background-color:black;">
+    <!--    <div class="col-sm-1"></div>-->
+    <div class="col-sm-2" style="padding-top:25px;">
+        {% if request.user.is_authenticated %}
+        <button id="create_meeting" type="button" class="btn btn-primary" onclick="CreateMeeting()">Create a new meeting</button>
+        {% endif %}
+
+    </div>
+    <div class="col-sm-2" style="padding-top:25px;">
+        {% if request.user.is_authenticated %}
+        <a id="my_meetings" type="button" class="btn btn-primary" href="{% url 'meetings:my_meeting_view' %}"> My meetings</a>
+          {% endif %}
+    </div>
+    <div class="col-sm-6"></div>
+    <div class="col-sm-1" style="padding-top:25px;">
+        {% if request.user.is_authenticated %}
+        <a id="logout" type="button" class="btn btn-success" href="{% url 'meetings:logout_view' %}">logout</a>
+        {% else %}
+        <button id="login" type="submit" class="btn btn-success" onclick="openForm()" style="padding-top:5px;">Login</button>
+        {% endif %}
+    </div>_
+    <div class="col-sm-1">
+        <img style=" border-radius: 50%" width="50" , height="50" src="https://picsum.photos/200/300?random=1">
+    </div>
+</div>
+<div class="row">
+    <div style="background-color:white;">
+        {% if messages %}
+        <ul class="messages">
+            {% for message in messages %}
+            <li {% if message.tags %} class=" {{ message.tags }} " {% endif %}> {{ message }}) </li>
+            {% endfor %}
+        </ul>
+         {% endif %}
+     </div>`
+</div>
+<div id="target" class="row">
+    <!-- all divs will append here -->
+</div>
+<div id="myForm" class="modal">
+    <form class="modal-content animate" action="{% url 'meetings:login_view' %}" method="post">
+        <h2 style="padding:15px;">Login Form</h2>
+        {% csrf_token %}
+        <div style="padding:5px;">
+            <label for="username"><b>Username</b></label>
+            <input type="text" placeholder="Enter Username" name="username" name="username" required>
+            <label for="password"><b>Password</b></label>
+            <input type="password" placeholder="Enter Password" name="password" required>
+            <button type="submit">Login</button>
+        </div>
+        <div>
+            <button type="button" style="padding:5px;" onclick="closeForm()" class="cancelbtn">Cancel</button>
+        </div>
+    </form>
+</div>
+
+
+<div id="CreateMettingForm" class="modal">
+    <form class="modal-content animate">
+        <h2 style="padding:15px;">Create Meeting </h2>
+        {% csrf_token %}
+        <div style="padding:5px;">
+            <label for="meeting_date_time"><b>Schedule Date</b></label>
+            <input type="datetime-local" id="meeting_date_time" placeholder="select date time" name="meeting_date_time">
+            <br>
+            <br>
+            <br>
+            <label for="meeting_time_interval"><b>Meeting interval</b></label>
+            <select name="meeting_time_interval" id="meeting_time_interval" class="btn btn-primary">
+                <option value="15 MIN">15 Minutes</option>
+                <option value="30 MIN">30 Minutes</option>
+                <option value="45 MIN">45 Mintutes</option>
+            </select>
+            <br>
+            <br>
+            <button type="button" class="btn btn-success" onclick="CreateMeetingFunction()">Create Meeting</button>
+        </div>
+        <div>
+            <button type="button" style="padding:5px;" onclick="CloseMeeting()" class="cancelbtn">Cancel</button>
+        </div>
+    </form>
+</div>
+
+<div style="display:none;" id="scheduling_table">
+    <table class="table table-dark" id="my_table">
+        <thead>
+            <tr>
+                <th scope="col">S.No</th>
+                <th scope="col">Meeting Creator</th>
+                <th scope="col">Start Meeting Date</th>
+                <th scope="col">Start Meeting Time</th>
+                <th scope="col">End Meeting Time</th>
+                <th scope="col">Availablity</th>
+                <th scope="col">Booked by</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+</div>
+<div id="UpdateMettingForm" class="modal">
+    <form class="modal-content animate">
+        <h2 style="padding:15px;">Update Meeting </h2>
+        {% csrf_token %}
+        <div style="padding:5px;">
+            <label for="user_name"><b>User name</b></label>
+            <input type="text" id="user_name" placeholder="Type user name here" name="user_name" required>
+            <br>
+            <br>
+            <br>
+            <label for="user_email"><b>User Email</b></label>
+            <input type="text" id="user_email" placeholder="Type user email here" name="user_email" required>
+            <br>
+            <br>
+            <button type="button" class="btn btn-success" onclick="UpdateMeetingFunction()">Update Meeting</button>
+
+        </div>
+        <div>
+            <button type="button" style="padding:5px;" onclick="CloseUpdateMeeting()" class="cancelbtn">Cancel</button>
+        </div>
+    </form>
+</div>
+
+{%endblock%}
+{% block js %}
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+<script>
+ var url = "{% url 'meetings:graphql_view' %}";
+    function openForm() {
+        document.getElementById("myForm").style.display = "block";
+    }
+
+    function closeForm() {
+        document.getElementById("myForm").style.display = "none";
+    }
+
+    function CreateMeeting() {
+        document.getElementById("CreateMettingForm").style.display = "block";
+    }
+
+    function CloseMeeting() {
+        document.getElementById("CreateMettingForm").style.display = "none";
+    }
+
+    var updated_meeting_id = null;
+    $(document).ready(function() {
+        const query = `query{
+  allScheduleMeeting {
+    id
+    isBooked
+    fromMeetingDateTime
+    toMeetingDateTime
+    meetingTimeInterval
+    meetingCreator {
+      id
+      username
+    }
+  }
+}`;
+        fetch(url, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                query
+            }),
+        }).then(response => {
+            return response.json();
+        }).then(data => {
+            var user_list = [];
+            var user_address = [];
+
+            for (var meeting = 0; meeting < data.data.allScheduleMeeting.length; meeting++) {
+                for (var user = 0; user < data.data.allScheduleMeeting[meeting].meetingCreator.length; user++) {
+                    user_list.push(data.data.allScheduleMeeting[meeting].meetingCreator[user].username)
+                }
+            }
+            user_list = user_list.filter(function(item, index, inputArray) {
+                return inputArray.indexOf(item) == index;
+            });
+            for (var name = 0; name < user_list.length; name++) {
+                $('#target').append('<div id="r' + name + '" class="col-sm-5" style="background-color: black;width: 370px;border: 37px black;padding: 71px;margin: 34px;text-anchor: start;"> <div style="font-size: 30px;vertical-align: text-top; color:white; text-align: center;">' + user_list[name] + ' </div> <div> </div><div style="font-size: 15px;vertical-align: text-top; color:#3393FF; bottom: revert;"><button class="btn btn-info" id=' + user_list[name] + ' onclick="BookSlot(this.id)"> Available slot </button></div>  </div>')
+            }
+        });
+    });
+
+    var today = new Date().toISOString().substring(0, 16)
+    document.getElementById("meeting_date_time").min = today;
+
+    function BookSlot(username) {
+        document.getElementById("target").style.display = "None";
+        document.getElementById("scheduling_table").style.display = "block";
+        const query = `query ($meetingCreator: String!){
+      allSchedulingMeetingOfUser(meetingCreator:$meetingCreator)
+       {
+        id
+        isBooked
+        fromMeetingDateTime
+        toMeetingDateTime
+        userName
+        userEmail
+        meetingTimeInterval
+        meetingCreator {
+          id
+          username
+        }
+      }
+    }`;
+        fetch(url, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                query,
+                variables: {
+                    "meetingCreator": username,
+                }
+
+            }),
+        }).then(response => {
+            return response.json();
+        }).then(data => {
+            for (var meetings = 0; meetings < data.data.allSchedulingMeetingOfUser.length; meetings++) {
+                let myTable = document.getElementById('my_table').getElementsByTagName('tbody')[0];
+                let row = myTable.insertRow(meetings);
+                let cell1 = row.insertCell(0);
+                let cell2 = row.insertCell(1);
+                let cell3 = row.insertCell(2);
+                let cell4 = row.insertCell(3);
+                let cell5 = row.insertCell(4);
+                let cell6 = row.insertCell(5);
+                let cell7 = row.insertCell(6);
+                cell1.innerHTML = meetings + 1
+                cell2.innerHTML = data.data.allSchedulingMeetingOfUser[meetings].meetingCreator[0].username
+                start_date_time = data.data.allSchedulingMeetingOfUser[meetings].fromMeetingDateTime
+                start_date_time = new Date(start_date_time)
+                end_date_time = data.data.allSchedulingMeetingOfUser[meetings].toMeetingDateTime
+                end_date_time = new Date(end_date_time)
+                cell3.innerHTML = start_date_time.toLocaleDateString()
+                cell4.innerHTML = start_date_time.toLocaleTimeString()
+                cell5.innerHTML = end_date_time.toLocaleTimeString()
+                if (data.data.allSchedulingMeetingOfUser[meetings].isBooked === true) {
+                    cell6.innerHTML = '<div style="background-color: #B22222; color:dark black ">Booked</div>'
+                    cell7.innerHTML = data.data.allSchedulingMeetingOfUser[meetings].userName
+                } else {
+                    cell6.innerHTML = '<div style="background-color: #7CFC00;">Available</div>'
+                    var i = data.data.allSchedulingMeetingOfUser[meetings].id
+                    cell7.innerHTML = `<div><button id=${i} onclick="UpdateMeeting(this.id)" class="btn btn-primary a-btn-slide-text"><span><strong>Book Your Slot</strong></span></button></div>`
+                }
+            }
+        })
+    }
+
+    function UpdateMeeting(meeting_id) {
+        updated_meeting_id = meeting_id;
+        document.getElementById("UpdateMettingForm").style.display = "block";
+    }
+
+    function UpdateMeetingFunction() {
+        query = `mutation ($id: ID!, $userName: String!, $userEmail: String!){
+            updateMeeting(id:$id  userName:$userName  userEmail:$userEmail)
+          {
+            meeting{
+              id
+              meetingTimeInterval
+            }
+          }
+      }`;
+        fetch(url, {
+                method: 'POST',
+                headers: {
+                    "Content-Type": 'application/json',
+                    "Accept": 'application/json',
+                },
+                body: JSON.stringify({
+                    query: query,
+                    variables: {
+                        "id": updated_meeting_id,
+                        "userName": $('#user_name').val(),
+                        "userEmail": $('#user_email').val()
+                    }
+                }),
+            })
+            .then(response => {
+                if (!response.ok) {}
+                alert("Meeting Updated Successfully")
+                location.reload();
+            })
+            .then(result => {
+                console.log(result)
+            })
+    }
+
+    function CloseUpdateMeeting() {
+        document.getElementById("UpdateMettingForm").style.display = "none";
+    }
+
+    function CreateMeetingFunction() {
+        const query = `
+     mutation ($fromMeetingDateTime: DateTime!, $meetingTimeInterval: String!){
+     createMeeting(fromMeetingDateTime: $fromMeetingDateTime meetingTimeInterval:$meetingTimeInterval)
+      {
+        meeting {
+          id
+          isBooked
+          userName
+          userEmail
+          fromMeetingDateTime
+          meetingTimeInterval
+        }
+      }
+      }`
+        fetch(url, {
+                method: 'POST',
+                headers: {
+                    "Content-Type": 'application/json',
+                    "Accept": 'application/json',
+                },
+                body: JSON.stringify({
+                    query: query,
+                    variables: {
+                        "fromMeetingDateTime": $('#meeting_date_time').val(),
+                        "meetingTimeInterval": $('#meeting_time_interval').val()
+                    }
+
+                }),
+            })
+            .then(response => {
+                if (!response.ok) {}
+                return response.json();
+            })
+            .then(result => {
+            debugger;
+            if (result.data.createMeeting === null)
+            {
+            alert("You can not create meeting on this time")
+            location.reload();
+            }
+            else{
+                alert("Meeting Created Successfully")
+                location.reload();
+                }
+            })
+    }
+</script>
+{% endblock %}

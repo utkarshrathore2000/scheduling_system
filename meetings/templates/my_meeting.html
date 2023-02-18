@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row" style="background-color:black;">
+    <!--    <div class="col-sm-1"></div>-->
+    <div class="col-sm-2" style="padding-top:25px;">
+        <h4>Created meeting by me</h4>
+    </div>
+    <div class="col-sm-2" style="padding-top:25px;">
+    </div>
+    <div class="col-sm-6"></div>
+    <div class="col-sm-1" style="padding-top:25px;">
+        {% if request.user.is_authenticated %}
+        <a id="logout" type="button" class="btn btn-success" href="{% url 'meetings:logout_view' %}">logout</a>
+        {% else %}
+        <button id="login" type="submit" class="btn btn-success" onclick="openForm()" style="padding-top:5px;">Login</button>
+        {% endif %}
+    </div>_
+    <div class="col-sm-1">
+        <img style=" border-radius: 50%" width="50" , height="50" src="https://picsum.photos/200/300?random=1">
+    </div>
+</div>
+<div>
+</div>
+
+<div>
+    <table class="table table-dark" , id="my_table">
+        <thead>
+            <tr>
+                <th scope="col">S.No</th>
+                <th scope="col">Meeting Creator</th>
+                <th scope="col">Start Meeting Date</th>
+                <th scope="col">Start Meeting Time</th>
+                <th scope="col">End Meeting Time</th>
+                <th scope="col">Availablity</th>
+                <th scope="col">Booked by</th>
+                <th scope="col">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+</div>
+<div id="UpdateMettingForm" class="modal">
+    <form class="modal-content animate">
+        <h2 style="padding:15px;">Update Meeting </h2>
+        {% csrf_token %}
+        <div style="padding:5px;">
+            <label for="meeting_date_time"><b>Schedule Date</b></label>
+            <input type="datetime-local" id="meeting_date_time" placeholder="select date time" name="meeting_date_time" required>
+            <br>
+            <br>
+            <br>
+            <label for="meeting_time_interval"><b>Meeting interval</b></label>
+            <select name="meeting_time_interval" id="meeting_time_interval" class="btn btn-primary">
+                <option value="15 MIN">15 Minutes</option>
+                <option value="30 MIN">30 Minutes</option>
+                <option value="45 MIN">45 Mintutes</option>
+            </select>
+            <br>
+            <br>
+            <button type="button" class="btn btn-success" onclick="UpdateMeetingFunction()">Update Meeting</button>
+
+        </div>
+        <div>
+            <button type="button" style="padding:5px;" onclick="CloseMeeting()" class="cancelbtn">Cancel</button>
+        </div>
+    </form>
+</div>
+{%endblock%}
+{% block js%}
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/js/bootstrap.min.js"></script>
+<script>
+    var updated_meeting_id = null;
+    var url = "{% url 'meetings:graphql_view' %}";
+    $(document).ready(function() {
+        const query = `query{
+  allSchedulingMeetingOfOwner {
+    id
+    isBooked
+    fromMeetingDateTime
+    toMeetingDateTime
+    userName
+    userEmail
+    meetingTimeInterval
+    meetingCreator {
+      id
+      username
+    }
+  }
+}`;
+        fetch(url, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                query
+            }),
+        }).then(response => {
+            return response.json();
+        }).then(data => {
+            for (var meetings = 0; meetings < data.data.allSchedulingMeetingOfOwner.length; meetings++) {
+                let myTable = document.getElementById('my_table').getElementsByTagName('tbody')[0];
+                let row = myTable.insertRow(meetings);
+                let cell1 = row.insertCell(0);
+                let cell2 = row.insertCell(1);
+                let cell3 = row.insertCell(2);
+                let cell4 = row.insertCell(3);
+                let cell5 = row.insertCell(4);
+                let cell6 = row.insertCell(5);
+                let cell7 = row.insertCell(6);
+                let cell8 = row.insertCell(7);
+                cell1.innerHTML = meetings + 1
+                cell2.innerHTML = data.data.allSchedulingMeetingOfOwner[meetings].meetingCreator[0].username
+                start_date_time = data.data.allSchedulingMeetingOfOwner[meetings].fromMeetingDateTime
+                start_date_time = new Date(start_date_time)
+                end_date_time = data.data.allSchedulingMeetingOfOwner[meetings].toMeetingDateTime
+                end_date_time = new Date(end_date_time)
+                cell3.innerHTML = start_date_time.toLocaleDateString()
+                cell4.innerHTML = start_date_time.toLocaleTimeString()
+                cell5.innerHTML = end_date_time.toLocaleTimeString()
+                if (data.data.allSchedulingMeetingOfOwner[meetings].isBooked === true) {
+                    cell6.innerHTML = '<div style="background-color: #B22222; color:dark black ">Booked</div>'
+                } else {
+                    cell6.innerHTML = '<div style="background-color: #7CFC00;">Available</div>'
+                }
+                var i = data.data.allSchedulingMeetingOfOwner[meetings].id
+                cell7.innerHTML = data.data.allSchedulingMeetingOfOwner[meetings].userName
+                cell8.innerHTML = `<div><button id=${i} onclick="UpdateMeeting(this.id)" class="btn btn-primary a-btn-slide-text"><span class="glyphicon glyphicon-edit" aria-hidden="true"></span><span><strong>Edit</strong></span></button> <button id=${i} onclick="DeleteFunction(this.id)"   class="btn btn-primary a-btn-slide-text"><span class="glyphicon glyphicon-remove" aria-hidden="true"></span><span><strong>Delete</strong></span></button></div>`
+            }
+        })
+    });
+
+    function DeleteFunction(meeting_id) {
+        query = `mutation ($id: ID!){
+             deleteMeeting(id:$id)
+          {
+            meeting
+            {
+              id
+              meetingCreator{
+                id
+                username
+              }
+            }
+          }
+        }`;
+        fetch(url, {
+                method: 'POST',
+                headers: {
+                    "Content-Type": 'application/json',
+                    "Accept": 'application/json',
+
+                },
+                body: JSON.stringify({
+                    query: query,
+                    variables: {
+                        "id": meeting_id,
+                    }
+                }),
+            })
+            .then(response => {
+                if (!response.ok) {}
+                alert("Delete Meeting Successfully")
+                location.reload();
+            })
+            .then(result => {})
+    }
+
+    function UpdateMeeting(meeting_id) {
+        query = `query ($id: ID!){
+          scheduleMeeting(id: $id){
+            fromMeetingDateTime
+            meetingTimeInterval
+          }
+        }`;
+        fetch(url, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                query,
+                variables: {
+                    "id": meeting_id,
+                }
+            }),
+        }).then(response => {
+            return response.json();
+        }).then(data => {
+            var from_date_time = data.data.scheduleMeeting.fromMeetingDateTime;
+            start_date_time = new Date(from_date_time)
+            var meeting_starting_date_time = start_date_time.getFullYear() + "-" + ("0" + (start_date_time.getMonth() + 1)).slice(-2) + "-" + ("0" + (start_date_time.getDate())).slice(-2) + "T" + ("0" + (start_date_time.getHours())).slice(-2) + ":" + ("0" + (start_date_time.getMinutes())).slice(-2)
+            var time_interval = data.data.scheduleMeeting.meetingTimeInterval
+            if (time_interval == "A_15_MIN") {
+                var time = "15 MIN";
+            } else if (time_interval == "A_30_MIN") {
+                var time = "30 MIN";
+            } else {
+                var time = "45 MIN";
+            }
+            document.getElementById("meeting_date_time").value = meeting_starting_date_time;
+            document.getElementById("meeting_time_interval").value = time;
+            updated_meeting_id = meeting_id;
+            document.getElementById("UpdateMettingForm").style.display = "block";
+        });
+    }
+
+
+    function CloseMeeting() {
+        document.getElementById("UpdateMettingForm").style.display = "none";
+    }
+
+    function UpdateMeetingFunction() {
+        query = `mutation ($id: ID!, $fromMeetingDateTime: DateTime!, $meetingTimeInterval: String!){
+            updateMeeting(id:$id  fromMeetingDateTime:$fromMeetingDateTime  meetingTimeInterval:$meetingTimeInterval)
+          {
+            meeting{
+              id
+              meetingTimeInterval
+            }
+          }
+      }`;
+        fetch(url, {
+                method: 'POST',
+                headers: {
+                    "Content-Type": 'application/json',
+                    "Accept": 'application/json',
+                },
+                body: JSON.stringify({
+                    query: query,
+                    variables: {
+                        "id": updated_meeting_id,
+                        "fromMeetingDateTime": $('#meeting_date_time').val(),
+                        "meetingTimeInterval": $('#meeting_time_interval').val()
+                    }
+                }),
+            })
+            .then(response => {
+                if (!response.ok) {}
+             return response.json();
+            })
+            .then(result => {
+            debugger;
+            if (result.data.updateMeeting === null)
+                {
+                alert("You can not update meeting on this time")
+                location.reload();
+                }
+            else{
+                alert("Meeting Created Successfully")
+                location.reload();
+                }
+            })
+    }
+
+    var today = new Date().toISOString().substring(0, 16)
+    document.getElementById("meeting_date_time").min = today;
+</script>
+{%endblock%}
